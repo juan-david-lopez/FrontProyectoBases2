@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../../components/Navbar.jsx';
 import Sidebar from '../../components/Sidebar.jsx';
-import { ArrowLeft, Search, Users, UserPlus, UserMinus, Save, AlertCircle } from 'lucide-react';
-import { fetchEstudiantesGrupo, asignarEstudiantesGrupo, fetchEstadisticasGrupo } from '../../services/gruposService.js';
+import { ArrowLeft, Search, Users, UserPlus, UserMinus, Save, AlertCircle, X, CheckCircle } from 'lucide-react';
+import { fetchEstudiantesGrupo, asignarEstudiantesGrupo, desasignarEstudianteGrupo, fetchEstadisticasGrupo } from '../../services/gruposService.js';
 import { fetchEstudiantes } from '../../services/estudiantesService.js';
 
 export default function AsignarEstudiantesPage() {
@@ -18,6 +18,7 @@ export default function AsignarEstudiantesPage() {
 	const [loading, setLoading] = useState(true);
 	const [guardando, setGuardando] = useState(false);
 	const [mensaje, setMensaje] = useState({ tipo: '', texto: '' });
+	const [estudianteParaQuitar, setEstudianteParaQuitar] = useState(null);
 
 	const items = [
 		{ to: '/administrador/dashboard', label: 'Dashboard' },
@@ -45,11 +46,12 @@ export default function AsignarEstudiantesPage() {
 			]);
 
 			setGrupoInfo(estadisticas);
-			setEstudiantesInscritos(inscritos.items || inscritos || []);
+			const listaInscritos = inscritos.items || inscritos || [];
+			setEstudiantesInscritos(listaInscritos);
 			
 			// Filtrar estudiantes que no están inscritos en este grupo
 			const todosEstudiantes = todos.items || todos || [];
-			const codigosInscritos = (inscritos.items || inscritos || []).map(e => e.cod_estudiante);
+			const codigosInscritos = listaInscritos.map(e => e.cod_estudiante);
 			const disponibles = todosEstudiantes.filter(e => !codigosInscritos.includes(e.cod_estudiante));
 			
 			setEstudiantesDisponibles(disponibles);
@@ -73,15 +75,7 @@ export default function AsignarEstudiantesPage() {
 	};
 
 	const seleccionarTodos = () => {
-		const disponiblesFiltrados = estudiantesDisponibles.filter(est => {
-			const searchLower = searchTerm.toLowerCase();
-			return (
-				est.nombre_completo?.toLowerCase().includes(searchLower) ||
-				est.cod_estudiante?.toLowerCase().includes(searchLower) ||
-				est.correo?.toLowerCase().includes(searchLower)
-			);
-		});
-		setEstudiantesSeleccionados(disponiblesFiltrados.map(e => e.cod_estudiante));
+		setEstudiantesSeleccionados(estudiantesDisponiblesFiltrados.map(e => e.cod_estudiante));
 	};
 
 	const deseleccionarTodos = () => {
@@ -125,6 +119,9 @@ export default function AsignarEstudiantesPage() {
 			// Recargar datos
 			setEstudiantesSeleccionados([]);
 			await cargarDatos();
+
+			// Ocultar mensaje después de 3 segundos
+			setTimeout(() => setMensaje({ tipo: '', texto: '' }), 3000);
 		} catch (error) {
 			console.error('Error al asignar estudiantes:', error);
 			setMensaje({ 
@@ -136,14 +133,70 @@ export default function AsignarEstudiantesPage() {
 		}
 	};
 
-	const estudiantesDisponiblesFiltrados = estudiantesDisponibles.filter(est => {
-		const searchLower = searchTerm.toLowerCase();
-		return (
-			est.nombre_completo?.toLowerCase().includes(searchLower) ||
-			est.cod_estudiante?.toLowerCase().includes(searchLower) ||
-			est.correo?.toLowerCase().includes(searchLower)
-		);
-	});
+	const confirmarQuitar = (estudiante) => {
+		setEstudianteParaQuitar(estudiante);
+	};
+
+	const handleDesasignar = async () => {
+		if (!estudianteParaQuitar) return;
+
+		try {
+			setGuardando(true);
+			await desasignarEstudianteGrupo(grupoId, estudianteParaQuitar.cod_estudiante);
+			
+			setMensaje({ 
+				tipo: 'success', 
+				texto: `${estudianteParaQuitar.nombre_completo} fue removido del grupo` 
+			});
+
+			// Recargar datos
+			setEstudianteParaQuitar(null);
+			await cargarDatos();
+
+			// Ocultar mensaje después de 3 segundos
+			setTimeout(() => setMensaje({ tipo: '', texto: '' }), 3000);
+		} catch (error) {
+			console.error('Error al desasignar estudiante:', error);
+			setMensaje({ 
+				tipo: 'error', 
+				texto: error.response?.data?.detalle || 'Error al remover estudiante del grupo' 
+			});
+		} finally {
+			setGuardando(false);
+		}
+	};
+
+	// Optimización de búsqueda con useMemo
+	const estudiantesDisponiblesFiltrados = useMemo(() => {
+		if (!searchTerm.trim()) return estudiantesDisponibles;
+
+		const searchLower = searchTerm.toLowerCase().trim();
+		return estudiantesDisponibles.filter(est => {
+			const nombre = est.nombre_completo?.toLowerCase() || '';
+			const codigo = est.cod_estudiante?.toLowerCase() || '';
+			const correo = est.correo?.toLowerCase() || '';
+			
+			return nombre.includes(searchLower) || 
+				   codigo.includes(searchLower) || 
+				   correo.includes(searchLower);
+		});
+	}, [estudiantesDisponibles, searchTerm]);
+
+	// Optimización de búsqueda de inscritos
+	const estudiantesInscritosFiltrados = useMemo(() => {
+		if (!searchTerm.trim()) return estudiantesInscritos;
+
+		const searchLower = searchTerm.toLowerCase().trim();
+		return estudiantesInscritos.filter(est => {
+			const nombre = est.nombre_completo?.toLowerCase() || '';
+			const codigo = est.cod_estudiante?.toLowerCase() || '';
+			const correo = est.correo?.toLowerCase() || '';
+			
+			return nombre.includes(searchLower) || 
+				   codigo.includes(searchLower) || 
+				   correo.includes(searchLower);
+		});
+	}, [estudiantesInscritos, searchTerm]);
 
 	if (loading) {
 		return (
@@ -175,7 +228,7 @@ export default function AsignarEstudiantesPage() {
 					<div className="flex items-center gap-4">
 						<button
 							onClick={() => navigate('/administrador/grupos')}
-							className="rounded-lg p-2 hover:bg-gray-200"
+							className="rounded-lg p-2 hover:bg-gray-200 transition"
 						>
 							<ArrowLeft className="h-6 w-6" />
 						</button>
@@ -259,8 +312,18 @@ export default function AsignarEstudiantesPage() {
 								: 'bg-red-50 text-red-800 border border-red-200'
 						}`}>
 							<div className="flex items-start gap-3">
-								<AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-								<p>{mensaje.texto}</p>
+								{mensaje.tipo === 'success' ? (
+									<CheckCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+								) : (
+									<AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+								)}
+								<p className="flex-1">{mensaje.texto}</p>
+								<button 
+									onClick={() => setMensaje({ tipo: '', texto: '' })}
+									className="text-gray-500 hover:text-gray-700"
+								>
+									<X className="h-4 w-4" />
+								</button>
 							</div>
 						</div>
 					)}
@@ -296,7 +359,7 @@ export default function AsignarEstudiantesPage() {
 										placeholder="Buscar por nombre, código o correo..."
 										value={searchTerm}
 										onChange={(e) => setSearchTerm(e.target.value)}
-										className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-blue-500 focus:outline-none"
+										className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition"
 									/>
 								</div>
 
@@ -304,13 +367,15 @@ export default function AsignarEstudiantesPage() {
 								<div className="flex gap-2">
 									<button
 										onClick={seleccionarTodos}
-										className="flex-1 rounded-lg border border-blue-600 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
+										disabled={estudiantesDisponiblesFiltrados.length === 0}
+										className="flex-1 rounded-lg border border-blue-600 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
 									>
 										Seleccionar Todos
 									</button>
 									<button
 										onClick={deseleccionarTodos}
-										className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+										disabled={estudiantesSeleccionados.length === 0}
+										className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
 									>
 										Deseleccionar Todos
 									</button>
@@ -321,7 +386,17 @@ export default function AsignarEstudiantesPage() {
 								{estudiantesDisponiblesFiltrados.length === 0 ? (
 									<div className="py-12 text-center">
 										<Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-										<p className="text-gray-600">No hay estudiantes disponibles</p>
+										<p className="text-gray-600">
+											{searchTerm ? 'No se encontraron estudiantes' : 'No hay estudiantes disponibles'}
+										</p>
+										{searchTerm && (
+											<button
+												onClick={() => setSearchTerm('')}
+												className="mt-2 text-sm text-blue-600 hover:underline"
+											>
+												Limpiar búsqueda
+											</button>
+										)}
 									</div>
 								) : (
 									<div className="space-y-2">
@@ -329,9 +404,9 @@ export default function AsignarEstudiantesPage() {
 											<div
 												key={estudiante.cod_estudiante}
 												onClick={() => toggleSeleccion(estudiante.cod_estudiante)}
-												className={`cursor-pointer rounded-lg border-2 p-3 transition ${
+												className={`cursor-pointer rounded-lg border-2 p-3 transition-all hover:shadow-md ${
 													estudiantesSeleccionados.includes(estudiante.cod_estudiante)
-														? 'border-blue-500 bg-blue-50'
+														? 'border-blue-500 bg-blue-50 shadow-sm'
 														: 'border-gray-200 hover:border-gray-300'
 												}`}
 											>
@@ -340,7 +415,7 @@ export default function AsignarEstudiantesPage() {
 														type="checkbox"
 														checked={estudiantesSeleccionados.includes(estudiante.cod_estudiante)}
 														onChange={() => {}}
-														className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+														className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
 													/>
 													<div className="flex-1">
 														<p className="font-semibold text-gray-900">
@@ -368,22 +443,24 @@ export default function AsignarEstudiantesPage() {
 						<div className="rounded-lg bg-white shadow-sm">
 							<div className="border-b border-gray-200 p-4">
 								<h2 className="text-xl font-semibold text-gray-900">
-									Estudiantes Inscritos ({estudiantesInscritos.length})
+									Estudiantes Inscritos ({estudiantesInscritosFiltrados.length})
 								</h2>
 							</div>
 
 							<div className="max-h-[600px] overflow-y-auto p-4">
-								{estudiantesInscritos.length === 0 ? (
+								{estudiantesInscritosFiltrados.length === 0 ? (
 									<div className="py-12 text-center">
 										<Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-										<p className="text-gray-600">No hay estudiantes inscritos aún</p>
+										<p className="text-gray-600">
+											{searchTerm ? 'No se encontraron estudiantes' : 'No hay estudiantes inscritos aún'}
+										</p>
 									</div>
 								) : (
 									<div className="space-y-2">
-										{estudiantesInscritos.map((estudiante) => (
+										{estudiantesInscritosFiltrados.map((estudiante) => (
 											<div
 												key={estudiante.cod_estudiante}
-												className="rounded-lg border-2 border-green-200 bg-green-50 p-3"
+												className="rounded-lg border-2 border-green-200 bg-green-50 p-3 hover:shadow-md transition"
 											>
 												<div className="flex items-center gap-3">
 													<div className="rounded-full bg-green-100 p-2">
@@ -400,6 +477,13 @@ export default function AsignarEstudiantesPage() {
 															<p className="text-xs text-gray-500">{estudiante.correo}</p>
 														)}
 													</div>
+													<button
+														onClick={() => confirmarQuitar(estudiante)}
+														className="rounded-lg p-2 text-red-600 hover:bg-red-100 transition"
+														title="Quitar del grupo"
+													>
+														<UserMinus className="h-5 w-5" />
+													</button>
 												</div>
 											</div>
 										))}
@@ -413,7 +497,7 @@ export default function AsignarEstudiantesPage() {
 					<div className="flex justify-end gap-3">
 						<button
 							onClick={() => navigate('/administrador/grupos')}
-							className="rounded-lg border border-gray-300 px-6 py-2 hover:bg-gray-50"
+							className="rounded-lg border border-gray-300 px-6 py-2 hover:bg-gray-50 transition"
 							disabled={guardando}
 						>
 							Cancelar
@@ -421,7 +505,7 @@ export default function AsignarEstudiantesPage() {
 						<button
 							onClick={handleAsignar}
 							disabled={guardando || estudiantesSeleccionados.length === 0 || excedeCupo}
-							className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-2 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+							className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-2 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
 						>
 							{guardando ? (
 								<>
@@ -438,6 +522,55 @@ export default function AsignarEstudiantesPage() {
 					</div>
 				</main>
 			</div>
+
+			{/* Modal de Confirmación para Quitar */}
+			{estudianteParaQuitar && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+					<div className="mx-4 max-w-md rounded-lg bg-white p-6 shadow-xl">
+						<div className="mb-4 flex items-start gap-3">
+							<div className="rounded-full bg-red-100 p-3">
+								<AlertCircle className="h-6 w-6 text-red-600" />
+							</div>
+							<div className="flex-1">
+								<h3 className="text-lg font-semibold text-gray-900">Confirmar Remoción</h3>
+								<p className="mt-2 text-sm text-gray-600">
+									¿Está seguro que desea remover a <strong>{estudianteParaQuitar.nombre_completo}</strong> del grupo?
+								</p>
+								<p className="mt-1 text-xs text-gray-500">
+									Esta acción no se puede deshacer.
+								</p>
+							</div>
+						</div>
+
+						<div className="flex justify-end gap-3">
+							<button
+								onClick={() => setEstudianteParaQuitar(null)}
+								disabled={guardando}
+								className="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50 transition"
+							>
+								Cancelar
+							</button>
+							<button
+								onClick={handleDesasignar}
+								disabled={guardando}
+								className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 disabled:opacity-50 transition"
+							>
+								{guardando ? (
+									<>
+										<div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+										Removiendo...
+									</>
+								) : (
+									<>
+										<UserMinus className="h-4 w-4" />
+										Confirmar
+									</>
+								)}
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }
