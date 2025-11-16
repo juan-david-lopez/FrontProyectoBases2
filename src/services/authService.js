@@ -23,27 +23,51 @@ export async function login({ email, password }) {
 		// Crear credenciales Basic Auth
 		const credentials = btoa(`${email}:${password}`);
 		
-		// Probar autenticación haciendo una petición a un endpoint conocido
-		// Usaremos /estudiantes/ como endpoint de prueba
-		await axiosClient.get('/estudiantes/', {
+		// Determinar rol basado en el email para saber qué endpoint consultar
+		let role = 'estudiante';
+		let userEndpoint = '/estudiantes/';
+		
+		if (email.includes('docente') || email.toLowerCase().includes('rodriguez') || email.toLowerCase().includes('lopez') || email.toLowerCase().includes('ramirez')) {
+			role = 'docente';
+			userEndpoint = '/docentes/';
+		} else if (email.includes('admin')) {
+			role = 'administrador';
+			userEndpoint = '/usuarios/';
+		}
+		
+		console.log('🎭 Rol detectado:', role);
+		console.log('📍 Endpoint:', userEndpoint);
+		
+		// Probar autenticación y obtener datos del usuario
+		const { data } = await axiosClient.get(userEndpoint, {
 			headers: {
 				Authorization: `Basic ${credentials}`
 			},
 			params: {
-				limit: 1 // Solo necesitamos verificar que la auth funciona
+				limit: 100
 			}
 		});
 		
 		console.log('✅ Autenticación exitosa');
+		console.log('📦 Datos recibidos:', data);
 		
-		// Determinar rol basado en el email (temporal)
-		// TODO: Implementar endpoint en ORDS que retorne el rol del usuario
-		let role = 'estudiante';
-		if (email.includes('docente') || email.toLowerCase().includes('rodriguez') || email.toLowerCase().includes('lopez') || email.toLowerCase().includes('ramirez')) {
-			role = 'docente';
-		} else if (email.includes('admin')) {
-			role = 'administrador';
+		// Buscar el usuario específico por email
+		let userData = null;
+		if (data.items && data.items.length > 0) {
+			// Para docentes, buscar por correo
+			userData = data.items.find(item => 
+				item.correo_institucional === email || 
+				item.correo === email ||
+				item.email === email
+			);
+			
+			// Si no lo encuentra, tomar el primero (puede ser que solo tenga acceso a sus propios datos)
+			if (!userData) {
+				userData = data.items[0];
+			}
 		}
+		
+		console.log('👤 Usuario encontrado:', userData);
 		
 		// Guardar credenciales para futuras peticiones
 		localStorage.setItem('auth_email', email);
@@ -51,12 +75,16 @@ export async function login({ email, password }) {
 		
 		// Retornar formato compatible con el AuthContext
 		return {
-			token: credentials, // Guardar las credenciales base64 como "token"
+			token: credentials,
 			role: role,
 			usuario: {
 				email: email,
-				nombre: email.split('@')[0],
-				correo: email
+				nombre: userData?.nombre_completo || userData?.nombre || email.split('@')[0],
+				correo: email,
+				cod_estudiante: userData?.cod_estudiante,
+				cod_docente: userData?.cod_docente,
+				cod_usuario: userData?.cod_usuario || userData?.id,
+				...userData
 			}
 		};
 		
