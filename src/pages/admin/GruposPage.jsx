@@ -303,6 +303,13 @@ export default function GruposPage() {
 												<td className="px-6 py-4">
 													<div className="flex items-center justify-center gap-2">
 														<button
+															onClick={() => navigate(`/administrador/grupos/${grupo.cod_grupo}/estudiantes`)}
+															className="rounded p-2 text-green-600 hover:bg-green-50"
+															title="Asignar Estudiantes"
+														>
+															<Users className="h-4 w-4" />
+														</button>
+														<button
 															onClick={() => navigate(`/administrador/grupos/${grupo.cod_grupo}/editar`)}
 															className="rounded p-2 text-blue-600 hover:bg-blue-50"
 															title="Editar"

@@ -53,8 +53,8 @@ export default function CalificacionesPage() {
 		try {
 			const data = await fetchNotasPorGrupo(grupoSeleccionado.id);
 			setEstudiantes(data?.estudiantes || []);
-		} catch (error) {
-			console.error('Error al cargar calificaciones:', error);
+		} catch {
+			console.error('Error al cargar calificaciones');
 			setEstudiantes([]);
 		}
 	};
@@ -254,7 +254,7 @@ export default function CalificacionesPage() {
 												{reglaEvaluacion.map((item) => {
 													const nota = estudiante.notas?.find(n => n.cod_item_evaluacion === item.codigo);
 													const key = `${estudiante.codigo}-${item.codigo}`;
-													const estaEditando = editando.hasOwnProperty(key);
+													const estaEditando = Object.prototype.hasOwnProperty.call(editando, key);
 
 													return (
 														<td key={item.codigo} className="whitespace-nowrap px-6 py-4 text-center">

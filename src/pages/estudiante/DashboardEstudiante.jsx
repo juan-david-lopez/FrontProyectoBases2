@@ -22,11 +22,7 @@ export default function DashboardEstudiante() {
 		{ to: '/estudiante/perfil', label: 'Mi Perfil' },
 	];
 
-	useEffect(() => {
-		cargarDatos();
-	}, [user]);
-
-	const cargarDatos = async () => {
+	const cargarDatos = React.useCallback(async () => {
 		try {
 			setLoading(true);
 			const codigoEstudiante = user?.cod_referencia || user?.cod_estudiante;
@@ -45,7 +41,11 @@ export default function DashboardEstudiante() {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [user]);
+
+	useEffect(() => {
+		cargarDatos();
+	}, [user, cargarDatos]);
 
 	const getRiesgoColor = (nivel) => {
 		const colores = {

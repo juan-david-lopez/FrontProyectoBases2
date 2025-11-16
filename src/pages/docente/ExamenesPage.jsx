@@ -41,8 +41,8 @@ export default function ExamenesPage() {
 			if (data && data.length > 0) {
 				setGrupoSeleccionado(data[0]);
 			}
-		} catch (error) {
-			console.error('Error al cargar grupos:', error);
+		} catch {
+			console.error('Error al cargar grupos');
 		} finally {
 			setLoading(false);
 		}
@@ -52,8 +52,8 @@ export default function ExamenesPage() {
 		try {
 			const data = await fetchReglaEvaluacion(grupoSeleccionado.id);
 			setItemsEvaluacion(data?.items || []);
-		} catch (error) {
-			console.error('Error al cargar regla de evaluación:', error);
+		} catch {
+			console.error('Error al cargar regla de evaluación');
 			setItemsEvaluacion([]);
 		}
 	};
