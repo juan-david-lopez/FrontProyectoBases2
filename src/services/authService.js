@@ -1,30 +1,76 @@
 import axiosClient from './axiosClient.js';
 
 /**
- * Autentica un usuario en el sistema
+ * AUTENTICACIÓN BASIC AUTH PARA ORDS
+ * 
+ * ORDS usa HTTP Basic Authentication en lugar de JWT.
+ * Las credenciales se envían en el header Authorization: Basic <base64>
+ * en cada petición, no hay un endpoint /auth/login separado.
+ */
+
+/**
+ * Autentica un usuario en el sistema usando Basic Auth
  * @param {Object} credentials - Credenciales de acceso
  * @param {string} credentials.email - Correo institucional del usuario
- * @param {string} credentials.password - Contraseña (documento de identidad por defecto)
+ * @param {string} credentials.password - Contraseña
  * @returns {Promise<{token: string, role: string, usuario: Object}>}
- * 
- * Response exitoso:
- * {
- *   token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
- *   role: "estudiante" | "docente" | "administrador",
- *   usuario: {
- *     id: 1,
- *     nombre: "Juan Pérez",
- *     email: "juan.perez@universidad.edu",
- *     cod_estudiante: "202500001" (solo para estudiantes)
- *   }
- * }
  */
 export async function login({ email, password }) {
-	const { data } = await axiosClient.post('/auth/login', { 
-		email, 
-		password 
-	});
-	return data;
+	try {
+		console.log('🔐 Intentando autenticación Basic Auth');
+		console.log('📧 Email:', email);
+		
+		// Crear credenciales Basic Auth
+		const credentials = btoa(`${email}:${password}`);
+		
+		// Probar autenticación haciendo una petición a un endpoint conocido
+		// Usaremos /estudiantes/ como endpoint de prueba
+		await axiosClient.get('/estudiantes/', {
+			headers: {
+				Authorization: `Basic ${credentials}`
+			},
+			params: {
+				limit: 1 // Solo necesitamos verificar que la auth funciona
+			}
+		});
+		
+		console.log('✅ Autenticación exitosa');
+		
+		// Determinar rol basado en el email (temporal)
+		// TODO: Implementar endpoint en ORDS que retorne el rol del usuario
+		let role = 'estudiante';
+		if (email.includes('docente') || email.toLowerCase().includes('rodriguez') || email.toLowerCase().includes('lopez') || email.toLowerCase().includes('ramirez')) {
+			role = 'docente';
+		} else if (email.includes('admin')) {
+			role = 'administrador';
+		}
+		
+		// Guardar credenciales para futuras peticiones
+		localStorage.setItem('auth_email', email);
+		localStorage.setItem('auth_password', password);
+		
+		// Retornar formato compatible con el AuthContext
+		return {
+			token: credentials, // Guardar las credenciales base64 como "token"
+			role: role,
+			usuario: {
+				email: email,
+				nombre: email.split('@')[0],
+				correo: email
+			}
+		};
+		
+	} catch (error) {
+		console.error('❌ Error en autenticación:', error);
+		console.error('Status:', error.response?.status);
+		console.error('Data:', error.response?.data);
+		
+		// Limpiar credenciales inválidas
+		localStorage.removeItem('auth_email');
+		localStorage.removeItem('auth_password');
+		
+		throw error;
+	}
 }
 
 /**
@@ -59,11 +105,13 @@ export async function actualizarPassword(username, newPassword) {
 
 /**
  * Cierra la sesión del usuario
- * Elimina el token y datos del usuario del localStorage
+ * Limpia credenciales del localStorage
  */
 export function logout() {
 	localStorage.removeItem('token');
 	localStorage.removeItem('user');
+	localStorage.removeItem('auth_email');
+	localStorage.removeItem('auth_password');
 }
 
 /**

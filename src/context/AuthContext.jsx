@@ -1,7 +1,6 @@
-import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { getProfile, login as loginApi } from '../services/authService.js';
-
-export const AuthContext = createContext(null);
+import { AuthContext } from './AuthContextContext.js';
 
 /**
  * Roles del sistema según backend ORDS:
@@ -96,11 +95,13 @@ export function AuthProvider({ children }) {
 
 	/**
 	 * Cierra la sesión del usuario
-	 * Limpia token y datos del localStorage
+	 * Limpia token, credenciales y datos del localStorage
 	 */
 	const logout = useCallback(() => {
 		localStorage.removeItem('token');
 		localStorage.removeItem('user');
+		localStorage.removeItem('auth_email');
+		localStorage.removeItem('auth_password');
 		setToken(null);
 		setUser(null);
 	}, []);

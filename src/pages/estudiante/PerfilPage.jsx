@@ -22,17 +22,50 @@ export default function PerfilPage() {
 	];
 
 	useEffect(() => {
-		cargarPerfil();
+		if (user) {
+			cargarPerfil();
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [user]);
 
 	const cargarPerfil = async () => {
 		try {
 			setLoading(true);
-			const data = await fetchEstudianteById(user?.cod_referencia || user?.cod_estudiante);
-			setEstudiante(data);
+			
+			// Debug: mostrar estructura del usuario
+			console.log('👤 Usuario completo:', user);
+			
+			// Intentar obtener el código del estudiante de varias ubicaciones posibles
+			const codigo = user?.cod_estudiante 
+				|| user?.cod_referencia 
+				|| user?.codigo
+				|| user?.usuario?.cod_estudiante;
+			
+			console.log('🔍 Código detectado:', codigo);
+			
+			if (!codigo) {
+				console.error('❌ No se encontró código de estudiante en:', user);
+				setMensaje({ tipo: 'error', texto: 'No se pudo obtener el código de estudiante' });
+				setLoading(false);
+				return;
+			}
+			
+			const data = await fetchEstudianteById(codigo);
+			console.log('✅ Datos del estudiante cargados:', data);
+			
+			// Verificar si data.items existe (respuesta ORDS)
+			if (data?.items && data.items.length > 0) {
+				setEstudiante(data.items[0]);
+			} else if (data) {
+				setEstudiante(data);
+			} else {
+				console.error('❌ Respuesta vacía del servidor');
+				setMensaje({ tipo: 'error', texto: 'No se encontraron datos del estudiante' });
+			}
 		} catch (error) {
-			console.error('Error al cargar perfil:', error);
-			setMensaje({ tipo: 'error', texto: 'Error al cargar los datos del perfil' });
+			console.error('❌ Error al cargar perfil:', error);
+			console.error('Response:', error.response?.data);
+			setMensaje({ tipo: 'error', texto: error.response?.data?.message || 'Error al cargar los datos del perfil' });
 		} finally {
 			setLoading(false);
 		}
@@ -50,12 +83,13 @@ export default function PerfilPage() {
 		}
 
 		try {
-			await actualizarPassword(user?.username || user?.email, passwords.nueva);
+			await actualizarPassword(user?.username || user?.email || user?.correo, passwords.nueva);
 			setMensaje({ tipo: 'success', texto: 'Contraseña actualizada correctamente' });
 			setEditandoPassword(false);
 			setPasswords({ nueva: '', confirmar: '' });
-		} catch (error) {
-			setMensaje({ tipo: 'error', texto: 'Error al actualizar la contraseña' });
+		} catch (err) {
+			console.error('❌ Error al cambiar contraseña:', err);
+			setMensaje({ tipo: 'error', texto: err.response?.data?.message || 'Error al actualizar la contraseña' });
 		}
 	};
 
@@ -102,7 +136,7 @@ export default function PerfilPage() {
 							</div>
 							<div>
 								<h2 className="text-2xl font-bold text-gray-900">
-									{estudiante?.nombre1} {estudiante?.nombre2} {estudiante?.apellido1} {estudiante?.apellido2}
+									{estudiante?.primer_nombre || estudiante?.nombre1} {estudiante?.segundo_nombre || estudiante?.nombre2 || ''} {estudiante?.primer_apellido || estudiante?.apellido1} {estudiante?.segundo_apellido || estudiante?.apellido2 || ''}
 								</h2>
 								<p className="text-gray-600">Estudiante</p>
 							</div>
@@ -114,7 +148,9 @@ export default function PerfilPage() {
 									<CreditCard className="mt-1 h-5 w-5 text-gray-400" />
 									<div>
 										<p className="text-sm font-medium text-gray-500">Código de Estudiante</p>
-										<p className="text-lg font-semibold text-gray-900">{estudiante?.codigo}</p>
+										<p className="text-lg font-semibold text-gray-900">
+											{estudiante?.cod_estudiante || estudiante?.codigo || 'No disponible'}
+										</p>
 									</div>
 								</div>
 
@@ -123,7 +159,7 @@ export default function PerfilPage() {
 									<div>
 										<p className="text-sm font-medium text-gray-500">Documento</p>
 										<p className="text-lg text-gray-900">
-											{estudiante?.tipo_documento} {estudiante?.documento}
+											{estudiante?.tipo_documento || 'CC'} {estudiante?.num_documento || estudiante?.documento || 'No disponible'}
 										</p>
 									</div>
 								</div>
@@ -132,7 +168,9 @@ export default function PerfilPage() {
 									<Mail className="mt-1 h-5 w-5 text-gray-400" />
 									<div>
 										<p className="text-sm font-medium text-gray-500">Correo Institucional</p>
-										<p className="text-lg text-gray-900">{estudiante?.correo}</p>
+										<p className="text-lg text-gray-900">
+											{estudiante?.correo_institucional || estudiante?.correo || estudiante?.email || 'No disponible'}
+										</p>
 									</div>
 								</div>
 
@@ -168,7 +206,9 @@ export default function PerfilPage() {
 									<Award className="mt-1 h-5 w-5 text-gray-400" />
 									<div>
 										<p className="text-sm font-medium text-gray-500">Programa Académico</p>
-										<p className="text-lg text-gray-900">{estudiante?.programa?.nombre || 'No asignado'}</p>
+										<p className="text-lg text-gray-900">
+											{estudiante?.nombre_programa || estudiante?.programa?.nombre || 'No asignado'}
+										</p>
 									</div>
 								</div>
 							</div>

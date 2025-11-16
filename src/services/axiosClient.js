@@ -5,17 +5,23 @@ const axiosClient = axios.create({
 	headers: {
 		'Content-Type': 'application/json',
 	},
-	withCredentials: true, // Habilitar credenciales para CORS
+	withCredentials: false, // ORDS no requiere credenciales de cookie
 	timeout: 10000, // Timeout de 10 segundos
 });
 
-// Interceptor para agregar el token de autenticación
+// Interceptor para agregar autenticación Basic Auth
 axiosClient.interceptors.request.use(
 	(config) => {
-		const token = localStorage.getItem('token');
-		if (token) {
-			config.headers.Authorization = `Bearer ${token}`;
+		// Obtener credenciales almacenadas (en lugar de JWT token)
+		const email = localStorage.getItem('auth_email');
+		const password = localStorage.getItem('auth_password');
+		
+		if (email && password) {
+			// Crear header Basic Auth: base64(email:password)
+			const credentials = btoa(`${email}:${password}`);
+			config.headers.Authorization = `Basic ${credentials}`;
 		}
+		
 		return config;
 	},
 	(error) => {
@@ -30,17 +36,23 @@ axiosClient.interceptors.response.use(
 		// Manejo de errores según código HTTP
 		if (error.response) {
 			const { status, data } = error.response;
+			const requestUrl = error.config?.url || '';
 
 			switch (status) {
 				case 401:
-					// Token inválido o expirado - Logout automático
-					console.error('Sesión expirada o token inválido');
-					localStorage.removeItem('token');
-					localStorage.removeItem('user');
-					// Redirigir al login solo si no estamos ya en login
-					if (!window.location.pathname.includes('/login')) {
+					// Credenciales inválidas o expiradas
+					console.error('❌ Autenticación inválida (401)');
+					
+					// Si no es login, limpiar y redirigir
+					if (!requestUrl.includes('/auth/') && !window.location.pathname.includes('/login')) {
+						localStorage.removeItem('token');
+						localStorage.removeItem('user');
+						localStorage.removeItem('auth_email');
+						localStorage.removeItem('auth_password');
 						window.location.href = '/login';
 					}
+					
+					error.message = data?.error || data?.message || 'Usuario o contraseña incorrectos';
 					break;
 
 				case 403:
