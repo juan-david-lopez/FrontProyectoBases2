@@ -18,6 +18,8 @@ import SedesPage from '../pages/admin/SedesPage.jsx';
 import ReportesPage from '../pages/admin/ReportesPage.jsx';
 import ConfiguracionPage from '../pages/admin/ConfiguracionPage.jsx';
 import LogsPage from '../pages/admin/LogsPage.jsx';
+import GruposPageAdmin from '../pages/admin/GruposPage.jsx';
+import CrearGrupoPage from '../pages/admin/CrearGrupoPage.jsx';
 
 // Docente
 import DashboardDocente from '../pages/docente/DashboardDocente.jsx';
@@ -66,6 +68,8 @@ export default function AppRoutes() {
 								<Route path="asignaturas" element={<AsignaturasPage />} />
 								<Route path="docentes" element={<DocentesPage />} />
 								<Route path="estudiantes" element={<EstudiantesPage />} />
+								<Route path="grupos" element={<GruposPageAdmin />} />
+								<Route path="grupos/crear" element={<CrearGrupoPage />} />
 								<Route path="sedes" element={<SedesPage />} />
 								<Route path="reportes" element={<ReportesPage />} />
 								<Route path="configuracion" element={<ConfiguracionPage />} />
