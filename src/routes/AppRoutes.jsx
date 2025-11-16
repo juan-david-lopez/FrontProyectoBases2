@@ -22,7 +22,8 @@ import LogsPage from '../pages/admin/LogsPage.jsx';
 // Docente
 import DashboardDocente from '../pages/docente/DashboardDocente.jsx';
 import GruposPage from '../pages/docente/GruposPage.jsx';
-import CalificacionesPage from '../pages/docente/CalificacionesPage.jsx';
+import CalificacionesPage from '../pages/docente/CalificacionesPageV2.jsx';
+import RegistrarNotasPage from '../pages/docente/RegistrarNotasPage.jsx';
 import ExamenesPage from '../pages/docente/ExamenesPage.jsx';
 import ReportesDocente from '../pages/docente/ReportesDocente.jsx';
 
@@ -87,6 +88,7 @@ export default function AppRoutes() {
 								<Route path="grupos" element={<GruposPage />} />
 								<Route path="examenes" element={<ExamenesPage />} />
 								<Route path="calificaciones" element={<CalificacionesPage />} />
+								<Route path="calificaciones/:grupoId/registrar" element={<RegistrarNotasPage />} />
 								<Route path="reportes" element={<ReportesDocente />} />
 								<Route path="*" element={<Navigate to="dashboard" replace />} />
 							</Routes>
