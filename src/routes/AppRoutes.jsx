@@ -29,6 +29,7 @@ import ReportesDocente from '../pages/docente/ReportesDocente.jsx';
 // Estudiante
 import DashboardEstudiante from '../pages/estudiante/DashboardEstudiante.jsx';
 import MatriculaPage from '../pages/estudiante/MatriculaPage.jsx';
+import HistorialMatriculaPage from '../pages/estudiante/HistorialMatriculaPage.jsx';
 import NotasPage from '../pages/estudiante/NotasPage.jsx';
 import RiesgoPage from '../pages/estudiante/RiesgoPage.jsx';
 import PerfilPage from '../pages/estudiante/PerfilPage.jsx';
@@ -103,6 +104,7 @@ export default function AppRoutes() {
 							<Routes>
 								<Route path="dashboard" element={<DashboardEstudiante />} />
 								<Route path="matricula" element={<MatriculaPage />} />
+								<Route path="historial-matricula" element={<HistorialMatriculaPage />} />
 								<Route path="notas" element={<NotasPage />} />
 								<Route path="riesgo" element={<RiesgoPage />} />
 								<Route path="perfil" element={<PerfilPage />} />
