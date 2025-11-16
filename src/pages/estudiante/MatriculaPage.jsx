@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import Navbar from '../../components/Navbar.jsx';
 import Sidebar from '../../components/Sidebar.jsx';
+import VentanaBanner from '../../components/VentanaBanner.jsx';
+import CupoIndicator from '../../components/CupoIndicator.jsx';
+import PrerrequisitosCard from '../../components/PrerrequisitosCard.jsx';
 import { 
-	fetchAsignaturasDisponibles, 
+	fetchAsignaturasDisponibles,
+	fetchResumenMatricula,
+	fetchGruposPorAsignatura,
 	registrarMatricula,
-	fetchMatriculaActual 
+	fetchMiHorario
 } from '../../services/matriculasService.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { 
@@ -12,102 +17,130 @@ import {
 	Clock, 
 	MapPin, 
 	Users, 
-	AlertCircle, 
 	CheckCircle, 
 	XCircle,
 	Search,
-	Filter,
 	ShoppingCart,
 	CreditCard,
-	Calendar,
 	User,
-	Award
+	Award,
+	Calendar
 } from 'lucide-react';
 
 export default function MatriculaPage() {
 	const { user } = useAuth();
 	const [asignaturasDisponibles, setAsignaturasDisponibles] = useState([]);
-	const [asignaturasSeleccionadas, setAsignaturasSeleccionadas] = useState([]);
-	const [creditosDisponibles, setCreditosDisponibles] = useState(0);
-	const [creditosSeleccionados, setCreditosSeleccionados] = useState(0);
-	const [nivelRiesgo, setNivelRiesgo] = useState(0);
+	const [gruposSeleccionados, setGruposSeleccionados] = useState([]);
+	const [resumenAcademico, setResumenAcademico] = useState(null);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState(null);
 	const [success, setSuccess] = useState(null);
 	const [searchTerm, setSearchTerm] = useState('');
-	const [filterSede, setFilterSede] = useState('all');
-	const [matriculaActual, setMatriculaActual] = useState(null);
 	const [showConfirmModal, setShowConfirmModal] = useState(false);
+	const [showGruposModal, setShowGruposModal] = useState(false);
+	const [gruposModal, setGruposModal] = useState({ asignatura: null, grupos: [] });
+	const [miHorario, setMiHorario] = useState([]);
 
 	const items = [
 		{ to: '/estudiante/dashboard', label: 'Resumen' },
 		{ to: '/estudiante/matricula', label: 'Matrícula' },
+		{ to: '/estudiante/historial-matricula', label: 'Historial' },
 		{ to: '/estudiante/notas', label: 'Notas' },
 		{ to: '/estudiante/riesgo', label: 'Riesgo' },
 		{ to: '/estudiante/perfil', label: 'Perfil' },
 	];
 
 	useEffect(() => {
-		cargarAsignaturasDisponibles();
-		cargarMatriculaActual();
+		cargarDatosMatricula();
 	}, [user]);
 
-	const cargarAsignaturasDisponibles = async () => {
+	const cargarDatosMatricula = async () => {
 		if (!user?.codigo) return;
 		
 		setLoading(true);
 		try {
-			const response = await fetchAsignaturasDisponibles(user.codigo);
-			setAsignaturasDisponibles(response.items || []);
-			setCreditosDisponibles(response.creditos_disponibles || 0);
-			setNivelRiesgo(response.nivel_riesgo || 0);
+			const [resumen, disponibles, horario] = await Promise.all([
+				fetchResumenMatricula(user.codigo),
+				fetchAsignaturasDisponibles(user.codigo),
+				fetchMiHorario(user.codigo).catch(() => ({ items: [] }))
+			]);
+
+			setResumenAcademico(resumen.items?.[0] || null);
+			setAsignaturasDisponibles(disponibles.items || []);
+			setMiHorario(horario.items || []);
 			setError(null);
 		} catch (err) {
-			setError('Error al cargar asignaturas disponibles');
+			setError('Error al cargar datos de matrícula');
 			console.error(err);
 		} finally {
 			setLoading(false);
 		}
 	};
 
-	const cargarMatriculaActual = async () => {
-		if (!user?.codigo) return;
-		
+	const mostrarGrupos = async (codAsignatura, nombreAsignatura) => {
+		setLoading(true);
 		try {
-			const periodo = '2025-1'; // Deberías obtener esto del calendario académico
-			const response = await fetchMatriculaActual(user.codigo, periodo);
-			setMatriculaActual(response);
+			const response = await fetchGruposPorAsignatura(codAsignatura);
+			setGruposModal({
+				asignatura: nombreAsignatura,
+				codAsignatura: codAsignatura,
+				grupos: response.items || []
+			});
+			setShowGruposModal(true);
+			setError(null);
 		} catch (err) {
-			console.log('No hay matrícula actual');
+			setError(`Error al cargar grupos de ${nombreAsignatura}`);
+			console.error(err);
+		} finally {
+			setLoading(false);
 		}
 	};
 
-	const toggleAsignatura = (asignatura) => {
-		const yaSeleccionada = asignaturasSeleccionadas.find(
-			a => a.cod_grupo === asignatura.cod_grupo
-		);
-
-		if (yaSeleccionada) {
-			setAsignaturasSeleccionadas(prev => 
-				prev.filter(a => a.cod_grupo !== asignatura.cod_grupo)
-			);
-			setCreditosSeleccionados(prev => prev - asignatura.creditos);
-		} else {
-			// Validar límite de créditos
-			if (creditosSeleccionados + asignatura.creditos > creditosDisponibles) {
-				setError(`No puedes exceder el límite de ${creditosDisponibles} créditos`);
-				setTimeout(() => setError(null), 3000);
-				return;
-			}
-
-			setAsignaturasSeleccionadas(prev => [...prev, asignatura]);
-			setCreditosSeleccionados(prev => prev + asignatura.creditos);
+	const seleccionarGrupo = (grupo) => {
+		// Verificar si ya está seleccionado
+		const yaSeleccionado = gruposSeleccionados.find(g => g.cod_grupo === grupo.cod_grupo);
+		if (yaSeleccionado) {
+			setError('Este grupo ya está seleccionado');
+			setTimeout(() => setError(null), 3000);
+			return;
 		}
+
+		// Calcular créditos totales
+		const asignatura = asignaturasDisponibles.find(a => a.cod_asignatura === grupo.cod_asignatura);
+		const creditosGrupo = asignatura?.creditos || 0;
+		const creditosTotales = gruposSeleccionados.reduce((sum, g) => sum + g.creditos, 0) + creditosGrupo;
+
+		// Validar límite de créditos
+		if (creditosTotales > (resumenAcademico?.creditos_disponibles || 0)) {
+			setError(`Excede el límite de ${resumenAcademico?.creditos_disponibles} créditos`);
+			setTimeout(() => setError(null), 3000);
+			return;
+		}
+
+		// Agregar grupo seleccionado
+		setGruposSeleccionados(prev => [...prev, {
+			cod_grupo: grupo.cod_grupo,
+			cod_asignatura: grupo.cod_asignatura,
+			asignatura: grupo.nombre_asignatura,
+			creditos: creditosGrupo,
+			horario: grupo.horario,
+			docente: grupo.nombre_docente,
+			salon: grupo.salon,
+			sede: grupo.nombre_sede
+		}]);
+
+		setShowGruposModal(false);
+		setSuccess(`Grupo ${grupo.cod_grupo} agregado al carrito`);
+		setTimeout(() => setSuccess(null), 3000);
+	};
+
+	const quitarGrupo = (codGrupo) => {
+		setGruposSeleccionados(prev => prev.filter(g => g.cod_grupo !== codGrupo));
 	};
 
 	const confirmarMatricula = async () => {
-		if (asignaturasSeleccionadas.length === 0) {
-			setError('Debes seleccionar al menos una asignatura');
+		if (gruposSeleccionados.length === 0) {
+			setError('Debes seleccionar al menos un grupo');
 			return;
 		}
 
@@ -117,22 +150,39 @@ export default function MatriculaPage() {
 		try {
 			const payload = {
 				codigoEstudiante: user.codigo,
-				cod_periodo: '2025-1',
-				asignaturas: asignaturasSeleccionadas.map(a => ({ cod_grupo: a.cod_grupo }))
+				cod_periodo: resumenAcademico?.periodo_actual || '2025-I',
+				grupos: gruposSeleccionados.map(g => ({ cod_grupo: g.cod_grupo }))
 			};
 
 			const response = await registrarMatricula(payload);
-			setSuccess(`¡Matrícula registrada exitosamente! ${response.creditos_registrados} créditos inscritos`);
-			setAsignaturasSeleccionadas([]);
-			setCreditosSeleccionados(0);
+			setSuccess(response.mensaje || '¡Matrícula registrada exitosamente!');
+			setGruposSeleccionados([]);
 			
 			// Recargar datos
-			await cargarAsignaturasDisponibles();
-			await cargarMatriculaActual();
+			await cargarDatosMatricula();
 			
 			setTimeout(() => setSuccess(null), 5000);
 		} catch (err) {
-			setError(err.response?.data?.error || 'Error al registrar matrícula');
+			// Manejo de errores según ORDS
+			const status = err.response?.status;
+			const data = err.response?.data;
+			
+			switch (status) {
+				case 403:
+					setError(data?.detalle || data?.error || 'Validación fallida');
+					break;
+				case 400:
+					setError(`Datos inválidos: ${data?.message || 'Verifique los datos'}`);
+					break;
+				case 404:
+					setError('Recurso no encontrado');
+					break;
+				case 500:
+					setError('Error del servidor. Intente más tarde');
+					break;
+				default:
+					setError('Error al registrar matrícula');
+			}
 			console.error(err);
 		} finally {
 			setLoading(false);
@@ -141,28 +191,12 @@ export default function MatriculaPage() {
 
 	// Filtros
 	const asignaturasFiltradas = asignaturasDisponibles.filter(asig => {
-		const matchSearch = asig.nombre_asignatura?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+		const matchSearch = asig.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			asig.cod_asignatura?.toLowerCase().includes(searchTerm.toLowerCase());
-		const matchSede = filterSede === 'all' || asig.sede === filterSede;
-		return matchSearch && matchSede;
+		return matchSearch;
 	});
 
-	const sedes = [...new Set(asignaturasDisponibles.map(a => a.sede))];
-
-	const getRiesgoColor = (nivel) => {
-		if (nivel === 0) return 'bg-green-100 text-green-800';
-		if (nivel === 1 || nivel === 3) return 'bg-red-100 text-red-800';
-		if (nivel === 2) return 'bg-orange-100 text-orange-800';
-		return 'bg-yellow-100 text-yellow-800';
-	};
-
-	const getRiesgoTexto = (nivel) => {
-		if (nivel === 0) return 'Sin Riesgo';
-		if (nivel === 1) return 'Riesgo Alto';
-		if (nivel === 2) return 'Riesgo Medio';
-		if (nivel === 3) return 'Riesgo Crítico';
-		return 'Bajo Rendimiento';
-	};
+	const creditosSeleccionados = gruposSeleccionados.reduce((sum, g) => sum + g.creditos, 0);
 
 	return (
 		<div className="min-h-screen bg-gray-50">
@@ -173,8 +207,13 @@ export default function MatriculaPage() {
 					{/* Header */}
 					<div>
 						<h1 className="text-3xl font-bold text-gray-900">Matrícula de Asignaturas</h1>
-						<p className="mt-1 text-gray-600">Periodo Académico 2025-1</p>
+						<p className="mt-1 text-gray-600">
+							Periodo Académico {resumenAcademico?.periodo_actual || '2025-I'}
+						</p>
 					</div>
+
+					{/* Banner de Ventana */}
+					<VentanaBanner tipo="MATRICULA" />
 
 					{/* Alertas */}
 					{error && (
@@ -192,65 +231,65 @@ export default function MatriculaPage() {
 					)}
 
 					{/* Panel de Información */}
-					<div className="grid gap-4 md:grid-cols-4">
-						<div className="rounded-lg bg-white p-4 shadow-sm">
-							<div className="flex items-center gap-3">
-								<div className="rounded-full bg-blue-100 p-3">
-									<CreditCard className="h-6 w-6 text-blue-600" />
-								</div>
-								<div>
-									<p className="text-sm text-gray-600">Créditos Disponibles</p>
-									<p className="text-2xl font-bold text-gray-900">{creditosDisponibles}</p>
+					{resumenAcademico && (
+						<div className="grid gap-4 md:grid-cols-4">
+							<div className="rounded-lg bg-white p-4 shadow-sm">
+								<div className="flex items-center gap-3">
+									<div className="rounded-full bg-blue-100 p-3">
+										<CreditCard className="h-6 w-6 text-blue-600" />
+									</div>
+									<div>
+										<p className="text-sm text-gray-600">Créditos Disponibles</p>
+										<p className="text-2xl font-bold text-gray-900">{resumenAcademico.creditos_disponibles}</p>
+									</div>
 								</div>
 							</div>
-						</div>
 
-						<div className="rounded-lg bg-white p-4 shadow-sm">
-							<div className="flex items-center gap-3">
-								<div className="rounded-full bg-purple-100 p-3">
-									<ShoppingCart className="h-6 w-6 text-purple-600" />
-								</div>
-								<div>
-									<p className="text-sm text-gray-600">Créditos Seleccionados</p>
-									<p className="text-2xl font-bold text-gray-900">{creditosSeleccionados}</p>
+							<div className="rounded-lg bg-white p-4 shadow-sm">
+								<div className="flex items-center gap-3">
+									<div className="rounded-full bg-purple-100 p-3">
+										<ShoppingCart className="h-6 w-6 text-purple-600" />
+									</div>
+									<div>
+										<p className="text-sm text-gray-600">Créditos Seleccionados</p>
+										<p className="text-2xl font-bold text-gray-900">{creditosSeleccionados}</p>
+									</div>
 								</div>
 							</div>
-						</div>
 
-						<div className="rounded-lg bg-white p-4 shadow-sm">
-							<div className="flex items-center gap-3">
-								<div className="rounded-full bg-green-100 p-3">
-									<BookOpen className="h-6 w-6 text-green-600" />
-								</div>
-								<div>
-									<p className="text-sm text-gray-600">Asignaturas</p>
-									<p className="text-2xl font-bold text-gray-900">{asignaturasSeleccionadas.length}</p>
+							<div className="rounded-lg bg-white p-4 shadow-sm">
+								<div className="flex items-center gap-3">
+									<div className="rounded-full bg-green-100 p-3">
+										<BookOpen className="h-6 w-6 text-green-600" />
+									</div>
+									<div>
+										<p className="text-sm text-gray-600">Grupos Seleccionados</p>
+										<p className="text-2xl font-bold text-gray-900">{gruposSeleccionados.length}</p>
+									</div>
 								</div>
 							</div>
-						</div>
 
-						<div className="rounded-lg bg-white p-4 shadow-sm">
-							<div className="flex items-center gap-3">
-								<div className={`rounded-full p-3 ${getRiesgoColor(nivelRiesgo).replace('text-', 'bg-').replace('800', '100')}`}>
-									<AlertCircle className={`h-6 w-6 ${getRiesgoColor(nivelRiesgo).replace('bg-', 'text-').replace('100', '600')}`} />
-								</div>
-								<div>
-									<p className="text-sm text-gray-600">Estado</p>
-									<p className={`text-sm font-semibold ${getRiesgoColor(nivelRiesgo).replace('bg-', 'text-')}`}>
-										{getRiesgoTexto(nivelRiesgo)}
-									</p>
+							<div className="rounded-lg bg-white p-4 shadow-sm">
+								<div className="flex items-center gap-3">
+									<div className="rounded-full bg-orange-100 p-3">
+										<Award className="h-6 w-6 text-orange-600" />
+									</div>
+									<div>
+										<p className="text-sm text-gray-600">Estado</p>
+										<p className="text-sm font-semibold text-gray-900">{resumenAcademico.descripcion_riesgo}</p>
+									</div>
 								</div>
 							</div>
 						</div>
-					</div>
+					)}
 
 					{/* Carrito de Selección */}
-					{asignaturasSeleccionadas.length > 0 && (
+					{gruposSeleccionados.length > 0 && (
 						<div className="rounded-lg bg-white p-6 shadow-sm border-2 border-blue-200">
 							<div className="flex items-center justify-between mb-4">
 								<h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
 									<ShoppingCart className="h-5 w-5 text-blue-600" />
-									Asignaturas Seleccionadas ({asignaturasSeleccionadas.length})
+									Grupos Seleccionados ({gruposSeleccionados.length})
 								</h2>
 								<button
 									onClick={() => setShowConfirmModal(true)}
@@ -262,19 +301,24 @@ export default function MatriculaPage() {
 								</button>
 							</div>
 							<div className="space-y-2">
-								{asignaturasSeleccionadas.map((asig) => (
-									<div key={asig.cod_grupo} className="flex items-center justify-between rounded-lg border border-gray-200 p-3 bg-blue-50">
+								{gruposSeleccionados.map((grupo) => (
+									<div key={grupo.cod_grupo} className="flex items-center justify-between rounded-lg border border-gray-200 p-3 bg-blue-50">
 										<div className="flex items-center gap-3">
 											<BookOpen className="h-5 w-5 text-blue-600" />
 											<div>
-												<p className="font-semibold text-gray-900">{asig.cod_asignatura} - {asig.nombre_asignatura}</p>
+												<p className="font-semibold text-gray-900">
+													{grupo.cod_asignatura} - {grupo.asignatura}
+												</p>
 												<p className="text-sm text-gray-600">
-													{asig.creditos} créditos • {asig.horario} • {asig.docente}
+													Grupo {grupo.cod_grupo} • {grupo.creditos} créditos • {grupo.horario}
+												</p>
+												<p className="text-xs text-gray-500">
+													{grupo.docente} • {grupo.salon}
 												</p>
 											</div>
 										</div>
 										<button
-											onClick={() => toggleAsignatura(asig)}
+											onClick={() => quitarGrupo(grupo.cod_grupo)}
 											className="rounded-lg bg-red-100 px-3 py-1 text-red-700 hover:bg-red-200"
 										>
 											Quitar
@@ -284,46 +328,29 @@ export default function MatriculaPage() {
 							</div>
 							<div className="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
 								<p className="text-lg font-semibold text-gray-900">
-									Total: {creditosSeleccionados} / {creditosDisponibles} créditos
+									Total: {creditosSeleccionados} / {resumenAcademico?.creditos_disponibles} créditos
 								</p>
 								<div className="h-2 w-64 bg-gray-200 rounded-full overflow-hidden">
 									<div 
-										className={`h-full ${creditosSeleccionados > creditosDisponibles ? 'bg-red-600' : 'bg-blue-600'}`}
-										style={{ width: `${Math.min((creditosSeleccionados / creditosDisponibles) * 100, 100)}%` }}
+										className={`h-full ${creditosSeleccionados > (resumenAcademico?.creditos_disponibles || 0) ? 'bg-red-600' : 'bg-blue-600'}`}
+										style={{ width: `${Math.min((creditosSeleccionados / (resumenAcademico?.creditos_disponibles || 1)) * 100, 100)}%` }}
 									/>
 								</div>
 							</div>
 						</div>
 					)}
 
-					{/* Filtros y Búsqueda */}
+					{/* Búsqueda */}
 					<div className="rounded-lg bg-white p-4 shadow-sm">
-						<div className="flex flex-wrap gap-4">
-							<div className="flex-1 min-w-[300px]">
-								<div className="relative">
-									<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-									<input
-										type="text"
-										placeholder="Buscar por código o nombre de asignatura..."
-										value={searchTerm}
-										onChange={(e) => setSearchTerm(e.target.value)}
-										className="w-full rounded-lg border border-gray-300 pl-10 pr-4 py-2 focus:border-blue-500 focus:outline-none"
-									/>
-								</div>
-							</div>
-							<div className="flex items-center gap-2">
-								<Filter className="h-5 w-5 text-gray-400" />
-								<select
-									value={filterSede}
-									onChange={(e) => setFilterSede(e.target.value)}
-									className="rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
-								>
-									<option value="all">Todas las Sedes</option>
-									{sedes.map(sede => (
-										<option key={sede} value={sede}>{sede}</option>
-									))}
-								</select>
-							</div>
+						<div className="relative">
+							<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+							<input
+								type="text"
+								placeholder="Buscar por código o nombre de asignatura..."
+								value={searchTerm}
+								onChange={(e) => setSearchTerm(e.target.value)}
+								className="w-full rounded-lg border border-gray-300 pl-10 pr-4 py-2 focus:border-blue-500 focus:outline-none"
+							/>
 						</div>
 					</div>
 
@@ -343,115 +370,141 @@ export default function MatriculaPage() {
 						) : asignaturasFiltradas.length === 0 ? (
 							<div className="rounded-lg bg-white p-12 shadow-sm text-center">
 								<BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-								<p className="text-gray-600">No hay asignaturas disponibles con los filtros seleccionados</p>
+								<p className="text-gray-600">No hay asignaturas disponibles</p>
 							</div>
 						) : (
 							<div className="grid gap-4">
-								{asignaturasFiltradas.map((asig) => {
-									const yaSeleccionada = asignaturasSeleccionadas.find(
-										a => a.cod_grupo === asig.cod_grupo
-									);
-									const sinCupo = asig.cupo_disponible <= 0;
-									const prerequisitosNoOk = asig.tiene_prerrequisitos && !asig.prerrequisitos_cumplidos;
-
-									return (
-										<div
-											key={asig.cod_grupo}
-											className={`rounded-lg bg-white p-6 shadow-sm border-2 transition ${
-												yaSeleccionada 
-													? 'border-blue-500 bg-blue-50' 
-													: 'border-gray-200 hover:border-gray-300'
-											}`}
-										>
-											<div className="flex items-start justify-between">
-												<div className="flex-1">
-													<div className="flex items-start gap-3">
-														<div className="rounded-full bg-blue-100 p-2 mt-1">
-															<BookOpen className="h-5 w-5 text-blue-600" />
-														</div>
-														<div className="flex-1">
-															<div className="flex items-center gap-2 mb-2">
-																<h3 className="text-lg font-semibold text-gray-900">
-																	{asig.cod_asignatura} - {asig.nombre_asignatura}
-																</h3>
-																<span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-800">
-																	{asig.creditos} créditos
-																</span>
-															</div>
-
-															<div className="grid grid-cols-2 gap-4 mb-3">
-																<div className="flex items-center gap-2 text-sm text-gray-600">
-																	<User className="h-4 w-4" />
-																	<span>{asig.docente}</span>
-																</div>
-																<div className="flex items-center gap-2 text-sm text-gray-600">
-																	<Clock className="h-4 w-4" />
-																	<span>{asig.horario}</span>
-																</div>
-																<div className="flex items-center gap-2 text-sm text-gray-600">
-																	<MapPin className="h-4 w-4" />
-																	<span>{asig.salon} - {asig.sede}</span>
-																</div>
-																<div className="flex items-center gap-2 text-sm text-gray-600">
-																	<Users className="h-4 w-4" />
-																	<span>Cupo: {asig.cupo_disponible} / {asig.cupo_maximo}</span>
-																</div>
-															</div>
-
-															{/* Prerrequisitos */}
-															{asig.tiene_prerrequisitos && (
-																<div className={`flex items-start gap-2 rounded-lg p-3 ${
-																	asig.prerrequisitos_cumplidos 
-																		? 'bg-green-50 border border-green-200' 
-																		: 'bg-red-50 border border-red-200'
-																}`}>
-																	{asig.prerrequisitos_cumplidos ? (
-																		<CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
-																	) : (
-																		<AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
-																	)}
-																	<div>
-																		<p className={`text-sm font-semibold ${
-																			asig.prerrequisitos_cumplidos ? 'text-green-800' : 'text-red-800'
-																		}`}>
-																			{asig.prerrequisitos_cumplidos 
-																				? 'Prerrequisitos cumplidos' 
-																				: 'Prerrequisitos pendientes'}
-																		</p>
-																		<p className="text-xs text-gray-600 mt-1">
-																			{asig.prerrequisitos?.join(', ')}
-																		</p>
-																	</div>
-																</div>
-															)}
-														</div>
-													</div>
+								{asignaturasFiltradas.map((asig) => (
+									<div
+										key={asig.cod_asignatura}
+										className="rounded-lg bg-white p-6 shadow-sm border-2 border-gray-200 hover:border-gray-300 transition"
+									>
+										<div className="flex items-start justify-between">
+											<div className="flex-1">
+												<div className="flex items-center gap-2 mb-2">
+													<h3 className="text-lg font-semibold text-gray-900">
+														{asig.cod_asignatura} - {asig.nombre}
+													</h3>
+													<span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-800">
+														{asig.creditos} créditos
+													</span>
+													{asig.tipo && (
+														<span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+															{asig.tipo}
+														</span>
+													)}
 												</div>
 
-												<div className="ml-4">
+												<div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
+													<span>Semestre {asig.semestre}</span>
+													<span>•</span>
+													<span>{asig.grupos_disponibles} grupo(s) disponible(s)</span>
+												</div>
+
+												{/* Prerrequisitos */}
+												<PrerrequisitosCard 
+													cumplidos={asig.prereq_cumplidos}
+													puede_inscribir={asig.puede_inscribir}
+													razon={asig.razon}
+												/>
+											</div>
+
+											<div className="ml-4">
+												{asig.puede_inscribir === 'SÍ' ? (
 													<button
-														onClick={() => toggleAsignatura(asig)}
-														disabled={sinCupo || prerequisitosNoOk}
-														className={`rounded-lg px-6 py-2 font-semibold transition ${
-															yaSeleccionada
-																? 'bg-red-600 text-white hover:bg-red-700'
-																: sinCupo || prerequisitosNoOk
-																? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-																: 'bg-blue-600 text-white hover:bg-blue-700'
-														}`}
+														onClick={() => mostrarGrupos(asig.cod_asignatura, asig.nombre)}
+														className="rounded-lg bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700 transition"
 													>
-														{yaSeleccionada ? 'Quitar' : sinCupo ? 'Sin Cupo' : prerequisitosNoOk ? 'Bloqueada' : 'Agregar'}
+														Ver Grupos
 													</button>
-												</div>
+												) : (
+													<button
+														disabled
+														className="rounded-lg bg-gray-300 px-6 py-2 font-semibold text-gray-500 cursor-not-allowed"
+													>
+														Bloqueada
+													</button>
+												)}
 											</div>
 										</div>
-									);
-								})}
+									</div>
+								))}
 							</div>
 						)}
 					</div>
 				</main>
 			</div>
+
+			{/* Modal de Grupos */}
+			{showGruposModal && (
+				<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+					<div className="bg-white rounded-lg max-w-4xl w-full p-6 max-h-[80vh] overflow-y-auto">
+						<h2 className="text-2xl font-bold text-gray-900 mb-4">
+							Seleccionar Grupo - {gruposModal.asignatura}
+						</h2>
+						
+						<div className="space-y-3 mb-6">
+							{gruposModal.grupos.map((grupo) => (
+								<div
+									key={grupo.cod_grupo}
+									className="rounded-lg border-2 border-gray-200 p-4 hover:border-blue-300 transition"
+								>
+									<div className="flex items-start justify-between">
+										<div className="flex-1">
+											<div className="flex items-center gap-3 mb-3">
+												<h3 className="text-lg font-semibold text-gray-900">
+													Grupo {grupo.cod_grupo}
+												</h3>
+												<CupoIndicator 
+													disponible={grupo.cupo_disponible}
+													maximo={grupo.cupo_maximo}
+													porcentaje={grupo.porcentaje_ocupacion}
+												/>
+											</div>
+
+											<div className="grid grid-cols-2 gap-3 text-sm text-gray-600">
+												<div className="flex items-center gap-2">
+													<User className="h-4 w-4" />
+													<span>{grupo.nombre_docente}</span>
+												</div>
+												<div className="flex items-center gap-2">
+													<Clock className="h-4 w-4" />
+													<span>{grupo.horario}</span>
+												</div>
+												<div className="flex items-center gap-2">
+													<MapPin className="h-4 w-4" />
+													<span>{grupo.salon}</span>
+												</div>
+												<div className="flex items-center gap-2">
+													<MapPin className="h-4 w-4" />
+													<span>{grupo.nombre_sede}</span>
+												</div>
+											</div>
+										</div>
+
+										<button
+											onClick={() => seleccionarGrupo(grupo)}
+											disabled={grupo.cupo_disponible === 0 || grupo.estado !== 'ABIERTO'}
+											className="ml-4 rounded-lg bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+										>
+											{grupo.cupo_disponible === 0 ? 'Sin Cupo' : 'Seleccionar'}
+										</button>
+									</div>
+								</div>
+							))}
+						</div>
+
+						<div className="flex items-center gap-3">
+							<button
+								onClick={() => setShowGruposModal(false)}
+								className="flex-1 rounded-lg border-2 border-gray-300 px-6 py-2 font-semibold text-gray-700 hover:bg-gray-50"
+							>
+								Cerrar
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 
 			{/* Modal de Confirmación */}
 			{showConfirmModal && (
@@ -464,14 +517,18 @@ export default function MatriculaPage() {
 						
 						<div className="mb-6">
 							<p className="text-gray-700 mb-4">
-								Estás por registrar las siguientes asignaturas:
+								Estás por registrar los siguientes grupos:
 							</p>
 							<div className="space-y-2 max-h-64 overflow-y-auto">
-								{asignaturasSeleccionadas.map((asig) => (
-									<div key={asig.cod_grupo} className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
+								{gruposSeleccionados.map((grupo) => (
+									<div key={grupo.cod_grupo} className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
 										<div>
-											<p className="font-semibold text-gray-900">{asig.cod_asignatura} - {asig.nombre_asignatura}</p>
-											<p className="text-sm text-gray-600">{asig.creditos} créditos • {asig.horario}</p>
+											<p className="font-semibold text-gray-900">
+												{grupo.cod_asignatura} - {grupo.asignatura}
+											</p>
+											<p className="text-sm text-gray-600">
+												Grupo {grupo.cod_grupo} • {grupo.creditos} créditos • {grupo.horario}
+											</p>
 										</div>
 										<Award className="h-5 w-5 text-blue-600" />
 									</div>
@@ -505,4 +562,3 @@ export default function MatriculaPage() {
 		</div>
 	);
 }
-
