@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function FormInput({ label, error, children, ...props }) {
+export const FormInput = ({ label, error, children, ...props }) => {
 	return (
 		<label className="block text-sm">
 			<span className="mb-1 block text-gray-700">{label}</span>
@@ -9,5 +9,7 @@ export default function FormInput({ label, error, children, ...props }) {
 			{error && <span className="mt-1 block text-xs text-red-600">{error}</span>}
 		</label>
 	);
-}
+};
+
+export default FormInput;
 

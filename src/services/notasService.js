@@ -150,3 +150,42 @@ export const fetchReglaEvaluacion = async (grupoId) => {
 	return data;
 };
 
+/**
+ * Obtiene las notas de un grupo específico
+ * Alias para fetchNotasPorGrupo
+ * @param {number} grupoId - ID del grupo
+ * @returns {Promise<Object>}
+ */
+export const fetchNotasGrupo = async (grupoId) => {
+	return fetchNotasPorGrupo(grupoId);
+};
+
+/**
+ * Registra una única nota (alias de registrarNotas para compatibilidad)
+ * @param {Object} payload - Datos de la nota
+ * @returns {Promise<Object>}
+ */
+export const registrarNota = async (payload) => {
+	return registrarNotas(payload);
+};
+
+/**
+ * Actualiza una nota existente
+ * @param {number} notaId - ID de la nota
+ * @param {Object} payload - Datos actualizados
+ * @returns {Promise<Object>}
+ */
+export const actualizarNota = async (notaId, payload) => {
+	const { data } = await axiosClient.put(`/notas/${notaId}`, payload);
+	return data;
+};
+
+/**
+ * Elimina una nota
+ * @param {number} notaId - ID de la nota
+ * @returns {Promise<Object>}
+ */
+export const eliminarNota = async (notaId) => {
+	const { data } = await axiosClient.delete(`/notas/${notaId}`);
+	return data;
+};

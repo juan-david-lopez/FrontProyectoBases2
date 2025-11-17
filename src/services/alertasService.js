@@ -146,3 +146,32 @@ export const getDetalleVentana = async (tipo) => {
 		return null;
 	}
 };
+
+/**
+ * Obtiene todas las alertas de un estudiante
+ * @param {string} codigoEstudiante - Código del estudiante
+ * @returns {Promise<Object>}
+ */
+export const fetchAlertasEstudiante = async (codigoEstudiante) => {
+	const { data } = await axiosClient.get(`/alertas/estudiante/${codigoEstudiante}`);
+	return data;
+};
+
+/**
+ * Obtiene todas las alertas del sistema
+ * @returns {Promise<Object>}
+ */
+export const fetchTodasAlertas = async () => {
+	const { data } = await axiosClient.get('/alertas');
+	return data;
+};
+
+/**
+ * Marca una alerta como leída
+ * @param {number} alertaId - ID de la alerta
+ * @returns {Promise<Object>}
+ */
+export const marcarAlertaComoLeida = async (alertaId) => {
+	const { data } = await axiosClient.put(`/alertas/${alertaId}/leer`);
+	return data;
+};

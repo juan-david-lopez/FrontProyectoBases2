@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function Table({ columns, data, empty = 'Sin datos' }) {
+export const Table = ({ columns, data, empty = 'Sin datos' }) => {
 	return (
 		<div className="overflow-hidden rounded-lg border border-gray-200">
 			<table className="min-w-full divide-y divide-gray-200">
@@ -31,5 +31,7 @@ export default function Table({ columns, data, empty = 'Sin datos' }) {
 			</table>
 		</div>
 	);
-}
+};
+
+export default Table;
 

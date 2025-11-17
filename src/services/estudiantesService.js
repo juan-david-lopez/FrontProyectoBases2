@@ -141,3 +141,35 @@ export const fetchEstudianteById = async (codigo) => {
 	return data;
 };
 
+/**
+ * Alias para crear estudiante
+ */
+export const createEstudiante = async (payload) => {
+	return crearEstudiante(payload);
+};
+
+/**
+ * Alias para actualizar estudiante
+ */
+export const updateEstudiante = async (codigo, payload) => {
+	return actualizarEstudiante(codigo, payload);
+};
+
+/**
+ * Elimina un estudiante
+ * @param {string} codigo - Código del estudiante
+ * @returns {Promise<Object>}
+ */
+export const deleteEstudiante = async (codigo) => {
+	const { data } = await axiosClient.delete(`/estudiantes/${codigo}`);
+	return data;
+};
+
+/**
+ * Obtiene el historial académico (alias)
+ * @param {string} codigo - Código del estudiante
+ * @returns {Promise<Object>}
+ */
+export const fetchHistorialAcademico = async (codigo) => {
+	return fetchHistorial(codigo);
+};

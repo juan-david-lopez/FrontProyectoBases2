@@ -93,3 +93,40 @@ export const fetchPlanEstudios = async (codigoPrograma) => {
 	return data;
 };
 
+/**
+ * Alias para crear programa
+ */
+export const createPrograma = async (programa) => {
+	return crearPrograma(programa);
+};
+
+/**
+ * Alias para actualizar programa
+ */
+export const updatePrograma = async (codigo, payload) => {
+	return actualizarPrograma(codigo, payload);
+};
+
+/**
+ * Alias para eliminar programa
+ */
+export const deletePrograma = async (codigo) => {
+	return eliminarPrograma(codigo);
+};
+
+/**
+ * Obtiene estudiantes de un programa
+ * @param {string} codigoPrograma - Código del programa
+ * @returns {Promise<Object>}
+ */
+export const fetchEstudiantesPorPrograma = async (codigoPrograma) => {
+	const { data } = await axiosClient.get(`/programas/${codigoPrograma}/estudiantes`);
+	return data;
+};
+
+/**
+ * Alias para obtener asignaturas de un programa
+ */
+export const fetchAsignaturasPorPrograma = async (codigoPrograma) => {
+	return fetchAsignaturasPrograma(codigoPrograma);
+};

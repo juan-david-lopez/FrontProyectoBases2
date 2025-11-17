@@ -15,11 +15,13 @@ export default function DashboardEstudiante() {
 	const [loading, setLoading] = useState(true);
 
 	const items = [
-		{ to: '/estudiante/dashboard', label: 'Dashboard' },
-		{ to: '/estudiante/matricula', label: 'Matrícula' },
-		{ to: '/estudiante/notas', label: 'Notas' },
-		{ to: '/estudiante/riesgo', label: 'Riesgo Académico' },
-		{ to: '/estudiante/perfil', label: 'Mi Perfil' },
+		{ to: '/estudiante/dashboard', label: '📊 Dashboard' },
+		{ to: '/estudiante/matricula-v2', label: '📚 Matrícula' },
+		{ to: '/estudiante/horario', label: '📅 Mi Horario' },
+		{ to: '/estudiante/notas-v2', label: '🎓 Mis Notas' },
+		{ to: '/estudiante/notificaciones', label: '🔔 Notificaciones' },
+		{ to: '/estudiante/riesgo', label: '⚠️ Riesgo Académico' },
+		{ to: '/estudiante/perfil', label: '👤 Mi Perfil' },
 	];
 
 	const cargarDatos = React.useCallback(async () => {

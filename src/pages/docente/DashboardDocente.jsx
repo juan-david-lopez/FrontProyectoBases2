@@ -4,10 +4,11 @@ import Sidebar from '../../components/Sidebar.jsx';
 
 export default function DashboardDocente() {
 	const items = [
-		{ to: '/docente/dashboard', label: 'Resumen' },
-		{ to: '/docente/grupos', label: 'Grupos' },
-		{ to: '/docente/calificaciones', label: 'Calificaciones' },
-		{ to: '/docente/reportes', label: 'Reportes' },
+		{ to: '/docente/dashboard', label: '📊 Resumen' },
+		{ to: '/docente/grupos-v2', label: '👥 Mis Grupos' },
+		{ to: '/docente/calificaciones', label: '📝 Calificaciones' },
+		{ to: '/docente/examenes', label: '📋 Exámenes' },
+		{ to: '/docente/reportes', label: '📊 Reportes' },
 	];
 	return (
 		<div className="min-h-screen">

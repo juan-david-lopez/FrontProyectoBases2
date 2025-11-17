@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function Modal({ open, title, children, onClose, actions }) {
+export const Modal = ({ open, title, children, onClose, actions }) => {
 	if (!open) return null;
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -14,5 +14,7 @@ export default function Modal({ open, title, children, onClose, actions }) {
 			</div>
 		</div>
 	);
-}
+};
+
+export default Modal;
 

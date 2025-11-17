@@ -103,6 +103,17 @@ export const asignarEstudiantesGrupo = async (payload) => {
 };
 
 /**
+ * Desasigna un estudiante de un grupo
+ * @param {number} codGrupo - Código del grupo
+ * @param {string} codEstudiante - Código del estudiante
+ * @returns {Promise<Object>}
+ */
+export const desasignarEstudianteGrupo = async (codGrupo, codEstudiante) => {
+	const { data } = await axiosClient.delete(`/grupos/${codGrupo}/estudiantes/${codEstudiante}`);
+	return data;
+};
+
+/**
  * Obtiene estadísticas de un grupo
  * @param {number} codGrupo - Código del grupo
  * @returns {Promise<Object>}
@@ -121,5 +132,35 @@ export const asignarEstudiantesGrupo = async (payload) => {
  */
 export const fetchEstadisticasGrupo = async (codGrupo) => {
 	const { data } = await axiosClient.get(`/grupos/${codGrupo}/estadisticas`);
+	return data;
+};
+
+/**
+ * Obtiene los grupos de un docente
+ * @param {string} codDocente - Código del docente
+ * @param {Object} params - Parámetros opcionales
+ * @returns {Promise<Object>}
+ */
+export const fetchGruposDocente = async (codDocente, params = {}) => {
+	const { data } = await axiosClient.get(`/grupos/docente/${codDocente}`, { params });
+	return data;
+};
+
+/**
+ * Obtiene el detalle completo de un grupo (alias de fetchGrupoById)
+ * @param {number} codGrupo - Código del grupo
+ * @returns {Promise<Object>}
+ */
+export const fetchDetalleGrupo = async (codGrupo) => {
+	return fetchGrupoById(codGrupo);
+};
+
+/**
+ * Obtiene el horario de un grupo
+ * @param {number} codGrupo - Código del grupo
+ * @returns {Promise<Object>}
+ */
+export const fetchHorarioGrupo = async (codGrupo) => {
+	const { data } = await axiosClient.get(`/grupos/${codGrupo}/horario`);
 	return data;
 };

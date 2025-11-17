@@ -5,14 +5,17 @@ import CardInfo from '../../components/CardInfo.jsx';
 
 export default function DashboardAdmin() {
 	const items = [
-		{ to: '/admin/dashboard', label: 'Resumen' },
-		{ to: '/admin/programas', label: 'Programas' },
-		{ to: '/admin/asignaturas', label: 'Asignaturas' },
-		{ to: '/admin/docentes', label: 'Docentes' },
-		{ to: '/admin/estudiantes', label: 'Estudiantes' },
-		{ to: '/admin/sedes', label: 'Sedes' },
-		{ to: '/admin/reportes', label: 'Reportes' },
-		{ to: '/admin/configuracion', label: 'Configuración' },
+		{ to: '/administrador/dashboard', label: '📊 Dashboard' },
+		{ to: '/administrador/periodos', label: '📅 Períodos' },
+		{ to: '/administrador/programas', label: '🎓 Programas' },
+		{ to: '/administrador/asignaturas', label: '📚 Asignaturas' },
+		{ to: '/administrador/grupos', label: '👥 Grupos' },
+		{ to: '/administrador/docentes', label: '👨‍🏫 Docentes' },
+		{ to: '/administrador/estudiantes-v2', label: '👨‍🎓 Estudiantes' },
+		{ to: '/administrador/sedes', label: '🏢 Sedes' },
+		{ to: '/administrador/reportes', label: '📊 Reportes' },
+		{ to: '/administrador/configuracion', label: '⚙️ Configuración' },
+		{ to: '/administrador/logs', label: '📋 Logs' },
 	];
 
 	return (

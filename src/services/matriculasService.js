@@ -299,3 +299,11 @@ export const fetchHistorialMatriculas = async (codigoEstudiante) => {
 	return data;
 };
 
+/**
+ * Alias para obtener grupos por asignatura
+ * @param {string} codAsignatura - Código de la asignatura
+ * @returns {Promise<Object>}
+ */
+export const fetchGruposAsignatura = async (codAsignatura) => {
+	return fetchGruposPorAsignatura(codAsignatura);
+};
